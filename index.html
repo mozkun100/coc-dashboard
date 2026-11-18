@@ -50,13 +50,16 @@
   .lvl { font-size: 20px; font-weight: 700; }
   .ok { color: #2f5d2a; } .bad { color: #8a1f1f; }
   .status { font-size: 14px; margin-top: 8px; color: #6b5338; }
+  .chars { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .chars button.on { background: #3b2a1c; color: #efe2c4; }
   .hint { font-size: 13px; color: #6b5338; margin-top: 6px; }
 </style>
 </head>
 <body>
 <div class="paper">
-  <h1 class="en">Silvester Augustin</h1>
-  <div class="sub">صفحة تجربة — هل توصل الرمية للدسكورد؟</div>
+  <div class="chars" id="chars"></div>
+  <h1 class="en" id="charName">Silvester Augustin</h1>
+  <div class="sub" id="charSub"></div>
 
   <label>رابط الـ Webhook (ينحفظ في جهازك بس)</label>
   <input id="hook" placeholder="https://discord.com/api/webhooks/..." autocomplete="off">
@@ -76,12 +79,28 @@
 </div>
 
 <script>
-const NAME = 'Silvester Augustin';
-const SKILLS = [
-  ['Locksmith', 66], ['Spot Hidden', 65], ['Listen', 50],
-  ['Psychology', 50], ['Charm', 40], ['Persuade', 40],
-  ['Brawl', 25], ['Luck', 70], ['Sanity', 60]
-];
+const CHARACTERS = {
+  silvester: {
+    name: 'Silvester Augustin',
+    sub: 'ساحر هروب · بوسطن',
+    skills: [
+      ['Locksmith', 66], ['Spot Hidden', 65], ['Listen', 50],
+      ['Psychology', 50], ['Charm', 40], ['Persuade', 40],
+      ['Brawl', 25], ['Luck', 70], ['Sanity', 60]
+    ]
+  },
+  eleanor: {
+    name: 'Eleanor Whitlock',
+    sub: 'صحفية · أركهام (شخصية تجربة)',
+    skills: [
+      ['Library Use', 70], ['Spot Hidden', 60], ['Fast Talk', 50],
+      ['Photography', 50], ['Psychology', 45], ['Persuade', 45],
+      ['Dodge', 35], ['Luck', 50], ['Sanity', 55]
+    ]
+  }
+};
+let current = 'silvester';
+let NAME = CHARACTERS[current].name;
 
 const hookEl = document.getElementById('hook');
 const hookState = document.getElementById('hookState');
@@ -118,25 +137,30 @@ function level(roll, skill) {
   return ['فشل', 'Failure', false];
 }
 
-async function post(h, content) {
+async function post(h, content, who) {
   const r = await fetch(h, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: NAME, content, flags: 4096 })
+    body: JSON.stringify({ username: who || NAME, content, flags: 4096 })
   });
   if (r.ok) return { ok: true };
+  if (r.status === 429) return { ok: false, code: 429, retry: true };
   let detail = '';
   try { detail = await r.text(); } catch (e) {}
   return { ok: false, code: r.status, detail };
 }
 
-async function send(content, plain) {
+async function send(content, plain, who) {
   const h = getHook();
   if (!h) return 'nohook';
   try {
-    let res = await post(h, content);
+    let res = await post(h, content, who);
+    for (let i = 0; i < 3 && res.retry; i++) {
+      await new Promise(ok => setTimeout(ok, 1500));
+      res = await post(h, content, who);
+    }
     if (!res.ok && res.code === 400 && plain) {
-      const res2 = await post(h, plain);
+      const res2 = await post(h, plain, who);
       if (res2.ok) return 'ok';
       res = res2;
     }
@@ -160,26 +184,61 @@ document.getElementById('ping').onclick = async () => {
 };
 
 const box = document.getElementById('skills');
-SKILLS.forEach(([name, val]) => {
+const charsEl = document.getElementById('chars');
+
+function pickChar(key) {
+  current = key;
+  NAME = CHARACTERS[key].name;
+  try { sessionStorage.setItem('coc_char', key); } catch (e) {}
+  document.getElementById('charName').textContent = NAME;
+  document.getElementById('charSub').textContent = CHARACTERS[key].sub;
+  document.title = 'داشبورد — ' + NAME;
+  charsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === key));
+  resultEl.innerHTML = '<div class="status">ما رميت شي للحين</div>';
+  renderSkills();
+}
+
+Object.keys(CHARACTERS).forEach(key => {
   const b = document.createElement('button');
-  b.className = 'skill';
-  b.innerHTML = '<span class="en">' + name + '</span><span class="num">' + val + '</span>';
-  b.onclick = async () => {
-    const roll = Math.floor(Math.random() * 100) + 1;
-    const [ar, en, good] = level(roll, val);
-    resultEl.innerHTML =
-      '<div class="en" style="font-size:16px">' + name + ' (' + val + ')</div>' +
-      '<div class="roll">' + roll + '</div>' +
-      '<div class="lvl ' + (good ? 'ok' : 'bad') + '">' + ar + ' · <span class="en">' + en + '</span></div>' +
-      '<div class="status">جاري الإرسال…</div>';
-    const msg = '🎲 **' + name + '** (' + val + ') → **' + roll + '** — ' +
-      (good ? '✅ ' : '❌ ') + ar + ' / ' + en;
-    const plain = name + ' (' + val + '): ' + roll + ' - ' + en;
-    const s = await send(msg, plain);
-    resultEl.querySelector('.status').textContent = statusText(s);
-  };
-  box.appendChild(b);
+  b.dataset.key = key;
+  b.className = 'en';
+  b.textContent = CHARACTERS[key].name;
+  b.onclick = () => pickChar(key);
+  charsEl.appendChild(b);
 });
+
+function renderSkills() {
+  box.innerHTML = '';
+  CHARACTERS[current].skills.forEach(([name, val]) => {
+    const b = document.createElement('button');
+    b.className = 'skill';
+    b.innerHTML = '<span class="en">' + name + '</span><span class="num">' + val + '</span>';
+    b.onclick = async () => {
+      const who = NAME;
+      const roll = Math.floor(Math.random() * 100) + 1;
+      const [ar, en, good] = level(roll, val);
+      resultEl.innerHTML =
+        '<div class="en" style="font-size:16px">' + name + ' (' + val + ')</div>' +
+        '<div class="roll">' + roll + '</div>' +
+        '<div class="lvl ' + (good ? 'ok' : 'bad') + '">' + ar + ' · <span class="en">' + en + '</span></div>' +
+        '<div class="status">جاري الإرسال…</div>';
+      const msg = '🎲 **' + name + '** (' + val + ') → **' + roll + '** — ' +
+        (good ? '✅ ' : '❌ ') + ar + ' / ' + en;
+      const plain = name + ' (' + val + '): ' + roll + ' - ' + en;
+      const s = await send(msg, plain, who);
+      resultEl.querySelector('.status').textContent = statusText(s);
+    };
+    box.appendChild(b);
+  });
+}
+
+let startKey = 'silvester';
+const fromHash = location.hash.replace('#', '');
+let saved = '';
+try { saved = sessionStorage.getItem('coc_char') || ''; } catch (e) {}
+if (CHARACTERS[fromHash]) startKey = fromHash;
+else if (CHARACTERS[saved]) startKey = saved;
+pickChar(startKey);
 
 showHookState();
 </script>
