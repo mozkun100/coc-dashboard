@@ -39,7 +39,8 @@
   button:active { transform: scale(.97); }
   .btn-dark { background: #3b2a1c; color: #efe2c4; border-color: #3b2a1c; }
   .skills { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-  .skill { display: flex; justify-content: space-between; align-items: center; text-align: right; }
+  .skill { display: flex; justify-content: space-between; align-items: center; direction: ltr; gap: 10px; }
+  .skill .num { border-right: none; padding: 0 0 0 8px; border-left: 1px dashed #9c7f55; }
   .skill .num { font-family: 'Special Elite', monospace; font-size: 18px; }
   .result {
     margin-top: 16px; padding: 14px; text-align: center;
@@ -117,24 +118,40 @@ function level(roll, skill) {
   return ['فشل', 'Failure', false];
 }
 
-async function send(content) {
+async function post(h, content) {
+  const r = await fetch(h, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: NAME, content })
+  });
+  if (r.ok) return { ok: true };
+  let detail = '';
+  try { detail = await r.text(); } catch (e) {}
+  return { ok: false, code: r.status, detail };
+}
+
+async function send(content, plain) {
   const h = getHook();
   if (!h) return 'nohook';
   try {
-    const r = await fetch(h, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: NAME, content })
-    });
-    return r.ok ? 'ok' : 'err' + r.status;
+    let res = await post(h, content);
+    if (!res.ok && res.code === 400 && plain) {
+      const res2 = await post(h, plain);
+      if (res2.ok) return 'ok';
+      res = res2;
+    }
+    if (res.ok) return 'ok';
+    lastDetail = res.detail;
+    return 'err' + res.code;
   } catch (e) { return 'neterr'; }
 }
+let lastDetail = '';
 
 function statusText(s) {
   if (s === 'ok') return 'وصلت للدسكورد ✅';
   if (s === 'nohook') return 'ما وصلت — حط رابط الـ Webhook واحفظه فوق';
   if (s === 'neterr') return 'ما وصلت ❌ — مشكلة اتصال أو المتصفح منعها';
-  return 'ما وصلت ❌ — الدسكورد رفض (' + s.replace('err', '') + ')';
+  return 'ما وصلت ❌ — الدسكورد رفض (' + s.replace('err', '') + ') ' + (lastDetail || '').slice(0, 200);
 }
 
 document.getElementById('ping').onclick = async () => {
@@ -157,7 +174,8 @@ SKILLS.forEach(([name, val]) => {
       '<div class="status">جاري الإرسال…</div>';
     const msg = '🎲 **' + name + '** (' + val + ') → **' + roll + '** — ' +
       (good ? '✅ ' : '❌ ') + ar + ' / ' + en;
-    const s = await send(msg);
+    const plain = name + ' (' + val + '): ' + roll + ' - ' + en;
+    const s = await send(msg, plain);
     resultEl.querySelector('.status').textContent = statusText(s);
   };
   box.appendChild(b);
