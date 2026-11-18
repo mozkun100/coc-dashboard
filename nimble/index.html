@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nimble — داشبورد</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 14px; background: #f3efe8; color: #2b2520; font-family: system-ui, "Segoe UI", Tahoma, sans-serif; }
+  .sheet { max-width: 640px; margin: 0 auto; background: #fff; border: 1.5px solid #8a6d4b; border-radius: 10px; padding: 18px 16px 24px; }
+  .en { direction: ltr; unicode-bidi: isolate; }
+  h1 { margin: 0; text-align: center; font-size: 24px; }
+  .sub { text-align: center; color: #6b5a48; font-size: 14px; margin-top: 4px; }
+  .rule { border: none; border-top: 2px dashed #8a6d4b; margin: 8px 0 4px; }
+  .sec { font-size: 12px; letter-spacing: 1px; color: #5a4632; font-weight: 600; border-bottom: 1px solid #8a6d4b; padding-bottom: 4px; margin: 18px 0 10px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; direction: ltr; }
+  .stat { border: 2px solid; border-radius: 8px; text-align: center; padding: 8px 4px; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+  .stat .lbl { font-size: 12px; font-weight: 600; }
+  .stat .val { font-size: 24px; font-weight: 700; }
+  .stat .tag { font-size: 11px; font-weight: 700; min-height: 14px; }
+  .s-STR { border-color: #d0342c; } .s-DEX { border-color: #2f6fd6; } .s-INT { border-color: #e08a1e; } .s-WIL { border-color: #2fa04e; }
+  .c-STR { color: #d0342c; } .c-DEX { color: #2f6fd6; } .c-INT { color: #e08a1e; } .c-WIL { color: #2fa04e; }
+  .adv { color: #2fa04e; } .dis { color: #d0342c; }
+  .combat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; direction: ltr; text-align: center; }
+  .combat .lbl { font-size: 11px; color: #6b5a48; font-weight: 600; }
+  .combat .val { font-size: 19px; font-weight: 700; }
+  .counter { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .counter button { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #8a6d4b; background: #fff; cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+  .skills { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; direction: ltr; }
+  .skill { display: flex; justify-content: space-between; padding: 6px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; background: none; font: inherit; text-align: left; }
+  .skill:hover, .act:hover, .stat:hover { background: #f7f1e8; }
+  .skill b { font-weight: 700; }
+  .acts { display: flex; flex-direction: column; gap: 6px; direction: ltr; }
+  .act { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #d9cbb8; border-radius: 8px; background: #fff; cursor: pointer; font: inherit; text-align: left; }
+  .act .note { font-size: 12px; color: #6b5a48; }
+  .act .dmg { font-weight: 700; white-space: nowrap; }
+  .act[disabled] { opacity: .45; cursor: not-allowed; }
+  .advbar { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; direction: ltr; }
+  .advbar button { border: 1px solid #8a6d4b; background: #fff; border-radius: 16px; padding: 5px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+  .advbar button.on { background: #5a4632; color: #fff; }
+  .result { margin-top: 16px; border: 2px solid #5a4632; border-radius: 10px; padding: 14px; text-align: center; min-height: 92px; }
+  .result .what { font-size: 14px; direction: ltr; }
+  .result .total { font-size: 40px; font-weight: 800; line-height: 1.15; }
+  .result .dice { font-size: 14px; color: #6b5a48; direction: ltr; }
+  .result .verdict { font-weight: 700; margin-top: 2px; }
+  .ok { color: #2f8a45; } .bad { color: #c0392b; } .crit { color: #b8860b; }
+  .status { font-size: 12px; color: #6b5a48; margin-top: 6px; }
+  details { margin-top: 18px; border: 1px solid #d9cbb8; border-radius: 8px; padding: 8px 12px; }
+  summary { cursor: pointer; font-weight: 600; color: #5a4632; }
+  label { display: block; font-size: 13px; margin: 10px 0 4px; }
+  input, select { font: inherit; padding: 7px 8px; border: 1px solid #b9a68e; border-radius: 6px; width: 100%; background: #fffdf9; }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .btn { border: 1px solid #5a4632; background: #fff; border-radius: 6px; padding: 8px 12px; cursor: pointer; font: inherit; }
+  .btn.dark { background: #5a4632; color: #fff; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; direction: ltr; }
+  .atkrow { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr auto; gap: 6px; direction: ltr; margin-top: 6px; }
+  .hint { font-size: 12px; color: #6b5a48; margin-top: 6px; }
+  .log { margin-top: 10px; font-size: 12px; color: #6b5a48; direction: ltr; text-align: left; max-height: 120px; overflow: auto; }
+  @media (max-width: 480px) { .combat { grid-template-columns: repeat(2, 1fr); } .skills { grid-template-columns: 1fr; } .atkrow { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1 class="en" id="name">Hero Name</h1>
+  <hr class="rule">
+  <div class="sub en" id="sub"></div>
+  <div class="sub">المستوى <b id="lvl">1</b></div>
+
+  <div class="sec">ADVANTAGE · للرمية الجاية</div>
+  <div class="advbar" id="advbar"></div>
+
+  <div class="sec">STATS · اضغط للـ Save</div>
+  <div class="stats" id="stats"></div>
+
+  <div class="sec">COMBAT</div>
+  <div class="combat">
+    <div><div class="lbl">HP</div>
+      <div class="counter"><button data-c="hp" data-d="-1">−</button><span class="val" id="hp"></span><button data-c="hp" data-d="1">+</button></div>
+      <div class="lbl" id="hpmax"></div></div>
+    <div><div class="lbl">WOUNDS</div>
+      <div class="counter"><button data-c="wounds" data-d="-1">−</button><span class="val" id="wounds"></span><button data-c="wounds" data-d="1">+</button></div>
+      <div class="lbl" id="woundsmax"></div></div>
+    <div><div class="lbl">DEFENSE</div><div class="val" id="def"></div></div>
+    <div><div class="lbl">INITIATIVE</div><button class="btn" id="initBtn" style="padding:4px 10px;font-weight:700"></button></div>
+  </div>
+
+  <div class="sec">SKILLS · اضغط للرمي</div>
+  <div class="skills" id="skills"></div>
+
+  <div class="sec">ATTACKS & SPELLS · اضغط للرمي</div>
+  <div class="acts" id="acts"></div>
+
+  <div class="result" id="result"><div class="status">ما رميت شي للحين</div></div>
+  <div class="log" id="log"></div>
+
+  <details>
+    <summary>⚙️ الإعدادات: الدسكورد، واستيراد الشخصية، والتعديل</summary>
+
+    <label>رابط الـ Webhook (ينحفظ في جهازك بس)</label>
+    <input id="hook" class="en" placeholder="https://discord.com/api/webhooks/..." autocomplete="off">
+    <div class="row">
+      <button class="btn dark" id="saveHook">احفظ الرابط</button>
+      <button class="btn" id="ping">أرسل رسالة تجربة</button>
+    </div>
+    <div class="hint" id="hookState"></div>
+
+    <label>استورد شخصية من ملف Nimble (‎.json)</label>
+    <input type="file" id="importFile" accept=".json,application/json">
+    <div class="hint" id="importState">يقرا الاسم والمستوى والخصائص والـ Saves والمهارات. الباقي تكمله تحت مرة وحدة.</div>
+
+    <label>الاسم</label>
+    <input id="eName" class="en">
+    <div class="grid4" style="margin-top:8px">
+      <div><label>HP Max</label><input id="eHp" type="number"></div>
+      <div><label>Defense</label><input id="eDef" type="number"></div>
+      <div><label>Wounds Max</label><input id="eWounds" type="number"></div>
+      <div><label>Level</label><input id="eLvl" type="number" min="1" max="20"></div>
+    </div>
+
+    <label>الهجمات والتعاويذ <span class="hint">(الاسم · النرد مثل 1d6 · المودفاير · ملاحظة)</span></label>
+    <div id="atkEdit"></div>
+    <div class="row">
+      <button class="btn" id="addAtk">+ أضف هجمة</button>
+      <button class="btn dark" id="saveEdit">احفظ التعديلات</button>
+      <button class="btn" id="reset">رجّع شخصية التجربة</button>
+    </div>
+    <div class="hint" id="editState"></div>
+  </details>
+</div>
+
+<script>
+const STATS = ['STR', 'DEX', 'INT', 'WIL'];
+const SKILLS = [
+  ['Arcana', 'INT'], ['Lore', 'INT'], ['Examination', 'INT'], ['Might', 'STR'],
+  ['Finesse', 'DEX'], ['Naturecraft', 'WIL'], ['Influence', 'WIL'], ['Perception', 'WIL'],
+  ['Insight', 'WIL'], ['Stealth', 'DEX']
+];
+
+const SAMPLE = {
+  name: 'Hero Name',
+  classname: 'Shepherd', ancestry: 'Oozeling/Construct', background: '(Secretly) Undead',
+  level: 1,
+  stats: { STR: 2, DEX: 2, INT: -1, WIL: 0 },
+  saves: { STR: 'neutral', DEX: 'disadvantage', INT: 'neutral', WIL: 'advantage' },
+  skillPoints: {},
+  hpMax: 17, hp: 17, defense: 10, woundsMax: 6, wounds: 0,
+  attacks: [
+    { name: 'Mace', dice: '1d6', mod: 'STR', note: 'Bludgeoning' },
+    { name: 'Withering Touch', dice: '1d12', mod: '', note: 'Necrotic · Reach 1 · target counts as undead 1 round' },
+    { name: 'Entice', dice: '1d4', mod: '', note: 'Necrotic · Range 8 · ignores armor · pull 2' },
+    { name: 'Rebuke', dice: '1d6', mod: '', note: 'Radiant · Reach 4 · ignores armor · never misses · 2× vs undead/cowardly', noMiss: true },
+    { name: 'True Strike', dice: '', mod: '', note: 'Radiant · ally gets advantage on next attack' },
+    { name: 'Searing Light', dice: 'WIL d8', mod: '', note: 'Radiant · WIL uses/Safe Rest · undead or Bloodied enemy' }
+  ]
+};
+
+let C = load();
+let adv = 0;
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function load() {
+  try { const s = localStorage.getItem('nim_char'); if (s) return Object.assign(clone(SAMPLE), JSON.parse(s)); } catch (e) {}
+  return clone(SAMPLE);
+}
+function save() { try { localStorage.setItem('nim_char', JSON.stringify(C)); } catch (e) {} }
+function sign(n) { return (n >= 0 ? '+' : '') + n; }
+function d(s) { return Math.floor(Math.random() * s) + 1; }
+function skillVal(name, stat) { return Math.min(12, (C.stats[stat] || 0) + ((C.skillPoints || {})[name] || 0)); }
+function advLabel(k) { return k === 0 ? '' : (k > 0 ? ' · ADV×' + k : ' · DIS×' + (-k)); }
+
+function d20(k) {
+  const n = 1 + Math.abs(k);
+  const rolls = Array.from({ length: n }, () => d(20));
+  const pick = k > 0 ? Math.max(...rolls) : k < 0 ? Math.min(...rolls) : rolls[0];
+  return { rolls, pick };
+}
+
+function attack(count, sides, k, noMiss) {
+  const n = count + Math.abs(k);
+  const rolls = Array.from({ length: n }, () => d(sides));
+  const kept = rolls.map((v, i) => ({ v, i }));
+  for (let j = 0; j < Math.abs(k); j++) {
+    let idx = 0;
+    kept.forEach((x, t) => { if (k > 0 ? x.v < kept[idx].v : x.v > kept[idx].v) idx = t; });
+    kept.splice(idx, 1);
+  }
+  const keptVals = kept.map(x => x.v);
+  const primary = keptVals[0];
+  const miss = !noMiss && primary === 1;
+  const explode = [];
+  if (!miss && primary === sides) {
+    let r;
+    do { r = d(sides); explode.push(r); } while (r === sides && explode.length < 50);
+  }
+  const sum = keptVals.reduce((a, b) => a + b, 0) + explode.reduce((a, b) => a + b, 0);
+  return { rolls, keptVals, primary, miss, crit: explode.length > 0, explode, sum };
+}
+
+function useAdv() { const k = adv; adv = 0; renderAdv(); return k; }
+
+function show(what, total, dice, verdict, cls) {
+  const r = document.getElementById('result');
+  r.innerHTML = '<div class="what">' + what + '</div><div class="total ' + (cls || '') + '">' + total +
+    '</div><div class="dice">' + dice + '</div><div class="verdict ' + (cls || '') + '">' + verdict +
+    '</div><div class="status">جاري الإرسال…</div>';
+  const log = document.getElementById('log');
+  log.insertAdjacentText('afterbegin', what + ' → ' + total + ' ' + verdict.replace(/<[^>]+>/g, '') + '\n');
+  log.style.whiteSpace = 'pre-line';
+}
+function setStatus(t) { const s = document.querySelector('#result .status'); if (s) s.textContent = t; }
+
+async function rollCheck(label, mod, k, kind) {
+  const r = d20(k);
+  const total = r.pick + mod;
+  let verdict = '', cls = '';
+  if (r.pick === 20) { verdict = 'NAT 20 · نجاح أكيد'; cls = 'crit'; }
+  else if (r.pick === 1) { verdict = 'NAT 1 · فشل أكيد'; cls = 'bad'; }
+  const diceTxt = '[' + r.rolls.join(', ') + ']' + (r.rolls.length > 1 ? ' → ' + r.pick : '') + ' ' + sign(mod) + advLabel(k);
+  show(label + ' (' + sign(mod) + ')', total, diceTxt, verdict, cls);
+  const msg = '🎲 **' + label + '** ' + kind + ' (' + sign(mod) + ')' + advLabel(k) + ' → `' + diceTxt + '` = **' + total + '**' + (verdict ? ' — ' + verdict : '');
+  setStatus(statusText(await send(msg, label + ' ' + kind + ': ' + total)));
+}
+
+async function rollInit() {
+  const k = useAdv();
+  const mod = C.stats.DEX || 0;
+  const r = d20(k);
+  const total = r.pick + mod;
+  const actions = total >= 20 ? 3 : total >= 10 ? 2 : 1;
+  const diceTxt = '[' + r.rolls.join(', ') + ']' + (r.rolls.length > 1 ? ' → ' + r.pick : '') + ' ' + sign(mod) + advLabel(k);
+  show('Initiative (' + sign(mod) + ')', total, diceTxt, actions + (actions === 1 ? ' Action' : ' Actions') + ' · ' + actions + ' أكشن', 'ok');
+  const msg = '⏱️ **Initiative** (' + sign(mod) + ')' + advLabel(k) + ' → `' + diceTxt + '` = **' + total + '** — **' + actions + (actions === 1 ? ' Action' : ' Actions') + '**';
+  setStatus(statusText(await send(msg, 'Initiative: ' + total + ' (' + actions + ' actions)')));
+}
+
+function parseDice(str) {
+  str = (str || '').trim();
+  if (!str) return null;
+  const m = str.match(/^(WIL|STR|DEX|INT|\d*)\s*d(\d+)$/i);
+  if (!m) return null;
+  let count = m[1] === '' ? 1 : (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (C.stats[m[1].toUpperCase()] || 0));
+  return { count, sides: parseInt(m[2], 10), stat: /^\d*$/.test(m[1]) ? null : m[1].toUpperCase() };
+}
+function modOf(a) { if (!a.mod) return 0; if (/^-?\d+$/.test(a.mod)) return parseInt(a.mod, 10); return C.stats[a.mod] || 0; }
+
+async function rollAttack(a) {
+  const pd = parseDice(a.dice);
+  if (!pd) {
+    show(a.name, '✦', a.note || '', 'استخدام بدون رمي', 'ok');
+    setStatus(statusText(await send('✨ **' + a.name + '** — ' + (a.note || 'used'), a.name + ' used')));
+    return;
+  }
+  const k = useAdv();
+  const mod = modOf(a);
+  const r = attack(pd.count, pd.sides, k, a.noMiss);
+  const diceStr = pd.count + 'd' + pd.sides + (mod ? sign(mod) : '');
+  let diceTxt = '[' + r.rolls.join(', ') + ']' + (r.rolls.length !== r.keptVals.length ? ' keep [' + r.keptVals.join(', ') + ']' : '') +
+    (r.explode.length ? ' 💥 +[' + r.explode.join(', ') + ']' : '') + (mod ? ' ' + sign(mod) : '') + advLabel(k);
+  let total, verdict, cls;
+  if (r.miss) { total = 0; verdict = 'MISS · خطأ (النرد الأساسي 1)'; cls = 'bad'; }
+  else { total = r.sum + mod; verdict = r.crit ? 'CRIT 💥 · ضربة حرجة (تتجاهل الدرع)' : 'HIT · إصابة'; cls = r.crit ? 'crit' : 'ok'; }
+  show(a.name + ' · ' + diceStr, total, diceTxt, verdict, cls);
+  const msg = '⚔️ **' + a.name + '** ' + diceStr + advLabel(k) + ' → `' + diceTxt + '` = **' + total + '** — ' +
+    (r.miss ? '❌ MISS' : r.crit ? '💥 CRIT' : '✅ HIT');
+  setStatus(statusText(await send(msg, a.name + ': ' + total + (r.miss ? ' MISS' : r.crit ? ' CRIT' : ''))));
+}
+
+function renderAdv() {
+  const bar = document.getElementById('advbar');
+  bar.innerHTML = '';
+  [[-2, 'DIS ×2'], [-1, 'DIS'], [0, 'عادي'], [1, 'ADV'], [2, 'ADV ×2']].forEach(([k, t]) => {
+    const b = document.createElement('button');
+    b.textContent = t;
+    if (k === adv) b.classList.add('on');
+    b.onclick = () => { adv = k; renderAdv(); };
+    bar.appendChild(b);
+  });
+}
+
+function render() {
+  document.getElementById('name').textContent = C.name || 'Hero Name';
+  document.getElementById('sub').textContent = [C.classname, C.ancestry, C.background].filter(Boolean).join(' | ');
+  document.getElementById('lvl').textContent = C.level;
+  const st = document.getElementById('stats');
+  st.innerHTML = '';
+  STATS.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'stat s-' + s;
+    const sv = (C.saves || {})[s];
+    const tag = sv === 'advantage' ? '<span class="adv">ADV</span>' : sv === 'disadvantage' ? '<span class="dis">DIS</span>' : '';
+    b.innerHTML = '<div class="lbl">' + s + '</div><div class="val">' + sign(C.stats[s] || 0) + '</div><div class="tag">' + tag + '</div>';
+    b.onclick = () => {
+      const base = sv === 'advantage' ? 1 : sv === 'disadvantage' ? -1 : 0;
+      rollCheck(s, C.stats[s] || 0, useAdv() + base, 'Save');
+    };
+    st.appendChild(b);
+  });
+  document.getElementById('hp').textContent = C.hp;
+  document.getElementById('hpmax').textContent = '/ ' + C.hpMax;
+  document.getElementById('wounds').textContent = C.wounds;
+  document.getElementById('woundsmax').textContent = '/ ' + C.woundsMax;
+  document.getElementById('def').textContent = C.defense;
+  document.getElementById('initBtn').textContent = sign(C.stats.DEX || 0);
+  const sk = document.getElementById('skills');
+  sk.innerHTML = '';
+  SKILLS.forEach(([n, s]) => {
+    const v = skillVal(n, s);
+    const b = document.createElement('button');
+    b.className = 'skill';
+    b.innerHTML = '<span class="c-' + s + '">' + n + '</span><b class="c-' + s + '">' + sign(v) + '</b>';
+    b.onclick = () => rollCheck(n, v, useAdv(), 'Check');
+    sk.appendChild(b);
+  });
+  const ac = document.getElementById('acts');
+  ac.innerHTML = '';
+  (C.attacks || []).forEach(a => {
+    const pd = parseDice(a.dice);
+    const b = document.createElement('button');
+    b.className = 'act';
+    const mod = modOf(a);
+    let dmg = pd ? (pd.count + 'd' + pd.sides + (mod ? sign(mod) : '')) : '—';
+    if (pd && pd.stat && pd.count <= 0) { b.disabled = true; dmg = pd.stat + ' = ' + (C.stats[pd.stat] || 0) + ' → 0 dice'; }
+    b.innerHTML = '<span><b>' + a.name + '</b><br><span class="note">' + (a.note || '') + '</span></span><span class="dmg">' + dmg + '</span>';
+    b.onclick = () => rollAttack(a);
+    ac.appendChild(b);
+  });
+  renderEdit();
+}
+
+document.querySelectorAll('.counter button').forEach(b => {
+  b.onclick = () => {
+    const c = b.dataset.c, dl = parseInt(b.dataset.d, 10);
+    if (c === 'hp') C.hp = Math.max(0, Math.min(C.hpMax, C.hp + dl));
+    if (c === 'wounds') C.wounds = Math.max(0, Math.min(C.woundsMax, C.wounds + dl));
+    save(); render();
+  };
+});
+document.getElementById('initBtn').onclick = rollInit;
+
+function renderEdit() {
+  document.getElementById('eName').value = C.name || '';
+  document.getElementById('eHp').value = C.hpMax;
+  document.getElementById('eDef').value = C.defense;
+  document.getElementById('eWounds').value = C.woundsMax;
+  document.getElementById('eLvl').value = C.level;
+  const box = document.getElementById('atkEdit');
+  box.innerHTML = '';
+  (C.attacks || []).forEach((a, i) => box.appendChild(atkRow(a, i)));
+}
+function atkRow(a) {
+  const row = document.createElement('div');
+  row.className = 'atkrow';
+  row.innerHTML = '<input placeholder="Name" value="' + esc(a.name) + '"><input placeholder="1d6" value="' + esc(a.dice) + '">' +
+    '<select><option value="">—</option>' + STATS.map(s => '<option' + (a.mod === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
+    '<input placeholder="note" value="' + esc(a.note) + '"><button class="btn" title="حذف">✕</button>';
+  row.dataset.nomiss = a.noMiss ? '1' : '';
+  row.querySelector('button').onclick = () => row.remove();
+  return row;
+}
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+document.getElementById('addAtk').onclick = () => document.getElementById('atkEdit').appendChild(atkRow({ name: '', dice: '1d6', mod: 'STR', note: '' }));
+document.getElementById('saveEdit').onclick = () => {
+  C.name = document.getElementById('eName').value.trim() || 'Hero Name';
+  C.hpMax = parseInt(document.getElementById('eHp').value, 10) || C.hpMax;
+  C.hp = Math.min(C.hp, C.hpMax);
+  C.defense = parseInt(document.getElementById('eDef').value, 10) || 0;
+  C.woundsMax = parseInt(document.getElementById('eWounds').value, 10) || 6;
+  C.level = parseInt(document.getElementById('eLvl').value, 10) || 1;
+  const rows = [...document.querySelectorAll('#atkEdit .atkrow')];
+  const bad = rows.find(r => { const v = r.querySelectorAll('input')[1].value.trim(); return v && !parseDice(v); });
+  if (bad) { document.getElementById('editState').textContent = 'النرد لازم يكون مثل 1d6 أو 2d8 أو WIL d8'; return; }
+  C.attacks = rows.map(r => {
+    const ins = r.querySelectorAll('input');
+    return { name: ins[0].value.trim() || 'Attack', dice: ins[1].value.trim(), mod: r.querySelector('select').value, note: ins[2].value.trim(), noMiss: !!r.dataset.nomiss };
+  });
+  save(); render();
+  document.getElementById('editState').textContent = 'انحفظ ✔';
+};
+document.getElementById('reset').onclick = () => { C = clone(SAMPLE); save(); render(); document.getElementById('editState').textContent = 'رجعت شخصية التجربة'; };
+
+document.getElementById('importFile').onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const out = document.getElementById('importState');
+  try {
+    const j = JSON.parse(await f.text());
+    const s = j.state || j;
+    if (!s.stats) throw new Error('no stats');
+    C.stats = Object.assign({ STR: 0, DEX: 0, INT: 0, WIL: 0 }, s.stats);
+    C.saves = s.saves || C.saves;
+    C.level = s.level || 1;
+    C.skillPoints = s.skillPoints || {};
+    C.name = (s.characterName || j.name || C.name).trim() || 'Hero Name';
+    if (j.classname) C.classname = j.classname;
+    if (j.ancestry) C.ancestry = j.ancestry;
+    save(); render();
+    out.textContent = 'استوردت ' + C.name + ' ✔ — تأكد من HP والـ Defense والهجمات تحت واحفظ.';
+  } catch (err) {
+    out.textContent = 'الملف ما انقرى — تأكد إنه ملف التصدير من موقع Nimble';
+  }
+};
+
+function getHook() { try { return localStorage.getItem('coc_hook') || ''; } catch (e) { return ''; } }
+function setHook(v) { try { localStorage.setItem('coc_hook', v); } catch (e) {} }
+function showHook() {
+  const h = getHook();
+  document.getElementById('hookState').textContent = h ? 'الرابط محفوظ ✔' : 'ما فيه رابط محفوظ — الرميات بتطلع هنا بس';
+  if (h) document.getElementById('hook').value = h;
+}
+document.getElementById('saveHook').onclick = () => {
+  const v = document.getElementById('hook').value.trim();
+  if (!/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//.test(v)) {
+    document.getElementById('hookState').textContent = 'الرابط لازم يبدأ بـ https://discord.com/api/webhooks/';
+    return;
+  }
+  setHook(v); showHook();
+};
+document.getElementById('ping').onclick = async () => {
+  document.getElementById('hookState').textContent = statusText(await send('🔔 تجربة اتصال من داشبورد Nimble', 'Nimble test'));
+};
+
+let lastDetail = '';
+async function post(h, content) {
+  const r = await fetch(h, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: (C.name || 'Hero') + ' · Nimble', content, flags: 4096 })
+  });
+  if (r.ok) return { ok: true };
+  if (r.status === 429) return { ok: false, code: 429, retry: true };
+  let detail = '';
+  try { detail = await r.text(); } catch (e) {}
+  return { ok: false, code: r.status, detail };
+}
+async function send(content, plain) {
+  const h = getHook();
+  if (!h) return 'nohook';
+  try {
+    let res = await post(h, content);
+    for (let i = 0; i < 3 && res.retry; i++) { await new Promise(ok => setTimeout(ok, 1500)); res = await post(h, content); }
+    if (!res.ok && res.code === 400 && plain) { const r2 = await post(h, plain); if (r2.ok) return 'ok'; res = r2; }
+    if (res.ok) return 'ok';
+    lastDetail = res.detail || '';
+    return 'err' + res.code;
+  } catch (e) { return 'neterr'; }
+}
+function statusText(s) {
+  if (s === 'ok') return 'وصلت للدسكورد ✅';
+  if (s === 'nohook') return 'ما انرسلت — حط رابط الـ Webhook في الإعدادات تحت';
+  if (s === 'neterr') return 'ما وصلت ❌ — مشكلة اتصال';
+  return 'ما وصلت ❌ (' + s.replace('err', '') + ') ' + lastDetail.slice(0, 160);
+}
+
+renderAdv();
+render();
+showHook();
+</script>
+</body>
+</html>
